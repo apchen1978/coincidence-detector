@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Coincidence Detector — a toy about cash and timing</title>
+<style>
+  :root {
+    --paper: #f7f5ee;
+    --bone: #efe9db;
+    --ink: #18251f;
+    --forest: #234e3b;
+    --moss: #6a7f6a;
+    --amber: #d9a441;
+    --gold: #e8b45a;
+    --rust: #b45a3a;
+    --line: #dcd6c4;
+    --calm: #234e3b;
+    --attention: #d9a441;
+    --storm: #b45a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 20px 72px; }
+  .kicker {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--amber);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-size: clamp(30px, 6vw, 46px);
+    line-height: 1.05; letter-spacing: -0.02em;
+    margin: 0 0 14px; font-weight: 700;
+  }
+  .spark {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-size: clamp(17px, 3vw, 21px);
+    color: var(--forest); font-style: italic;
+    max-width: 34em; margin: 0 0 28px;
+  }
+  .scenarios { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 30px; }
+  .scenarios button {
+    font: inherit; font-size: 13px; font-weight: 600;
+    padding: 8px 14px; cursor: pointer;
+    background: transparent; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 999px;
+    transition: all .15s ease;
+  }
+  .scenarios button:hover { border-color: var(--forest); color: var(--forest); }
+  .scenarios button.active { background: var(--forest); color: var(--bone); border-color: var(--forest); }
+
+  .card {
+    border: 1px solid var(--line); border-radius: 18px;
+    background: #fffdf7; overflow: hidden;
+  }
+  .weather { padding: 20px 22px 16px; border-bottom: 1px solid var(--line); }
+  .weather .label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--moss); margin: 0 0 12px;
+  }
+  .heat {
+    display: flex; align-items: flex-end; gap: 6px; height: 92px;
+  }
+  .heat .cell {
+    flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
+    align-items: center; gap: 6px; height: 100%;
+  }
+  .heat .bar {
+    width: 100%; border-radius: 4px 4px 0 0; min-height: 4px;
+    background: var(--calm); opacity: .92;
+    transition: background .2s ease, height .25s ease;
+  }
+  .heat .cell.hot .bar { background: var(--storm); }
+  .heat .cell.warm .bar { background: var(--attention); }
+  .heat .week { font-size: 9px; color: var(--moss); letter-spacing: .03em; white-space: nowrap; }
+  .legend { display: flex; gap: 16px; margin-top: 10px; font-size: 11px; color: var(--moss); }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: baseline; }
+
+  .rows { padding: 8px 22px; }
+  .row {
+    display: grid; grid-template-columns: 74px 1fr auto;
+    gap: 14px; align-items: baseline;
+    padding: 13px 6px; border-bottom: 1px solid var(--line);
+    transition: background .15s ease;
+  }
+  .row:last-child { border-bottom: 0; }
+  .row .date { font-size: 12px; color: var(--moss); font-variant-numeric: tabular-nums; }
+  .row .name { font-weight: 600; font-size: 14px; }
+  .row .name .badge {
+    font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--amber); margin-left: 8px;
+  }
+  .row .amt { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .row.in-peak { background: rgba(217, 164, 65, 0.07); }
+  .row.in-peak .amt { color: var(--rust); }
+  .row.watched .name::after { content: " ← you"; font-weight: 400; color: var(--moss); margin-left: 6px; font-size: 12px; }
+  .row.moved .date::after { content: " (moved)"; color: var(--rust); }
+
+  .reveal { padding: 18px 22px 20px; border-top: 1px solid var(--line); }
+  .reveal button {
+    font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+    background: var(--forest); color: var(--bone);
+    border: 0; border-radius: 10px; padding: 12px 18px;
+    transition: background .15s ease;
+  }
+  .reveal button:hover { background: #1c3f30; }
+  .reveal .verdict { margin-top: 18px; }
+  .reveal .verdict p { margin: 6px 0; }
+  .reveal .verdict .watched-line { color: var(--moss); font-size: 14px; }
+  .reveal .verdict .peak-line { font-size: 22px; font-weight: 700; font-family: ui-serif, Georgia, serif; color: var(--forest); }
+  .reveal .verdict .peak-line b { color: var(--rust); }
+  .reveal .verdict .collide-line { font-size: 14px; color: var(--ink); max-width: 46em; }
+
+  .move { padding: 16px 22px 24px; border-top: 1px solid var(--line); background: rgba(234, 225, 205, 0.25); }
+  .move.hidden { display: none; }
+  .move .label { font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--moss); margin: 0 0 6px; }
+  .move .who { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .move .who b { color: var(--forest); }
+  .move input[type=range] { width: 100%; accent-color: var(--amber); }
+  .move .delta { margin-top: 12px; font-size: 14px; }
+  .move .delta .big { font-family: ui-serif, Georgia, serif; font-size: 24px; font-weight: 700; }
+  .move .delta .big .to { color: var(--rust); }
+  .foot {
+    margin-top: 26px; font-size: 11px; color: var(--moss);
+    border-top: 1px solid var(--line); padding-top: 14px;
+  }
+  @media (max-width: 560px) {
+    .row { grid-template-columns: 64px 1fr auto; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">a toy about cash &amp; timing</p>
+  <h1>Coincidence Detector</h1>
+  <p class="spark">Unrelated commitments become related the moment they share a week.</p>
+
+  <div class="scenarios" id="scenarios"></div>
+
+  <div class="card">
+    <div class="weather">
+      <p class="label">Cash weather — weekly commitment load</p>
+      <div class="heat" id="heat"></div>
+      <div class="legend">
+        <span><i style="background:var(--calm)"></i>calm</span>
+        <span><i style="background:var(--attention)"></i>attention</span>
+        <span><i style="background:var(--storm)"></i>storm</span>
+      </div>
+    </div>
+
+    <div class="rows" id="rows"></div>
+
+    <div class="reveal">
+      <button id="revealBtn">Reveal the collision</button>
+      <div class="verdict" id="verdict" hidden></div>
+    </div>
+
+    <div class="move hidden" id="move">
+      <p class="label">What if you moved the one you ignored?</p>
+      <p class="who" id="moveWho"></p>
+      <input type="range" id="slider" min="-6" max="6" step="1" value="0" />
+      <div class="delta" id="delta"></div>
+    </div>
+  </div>
+
+  <p class="foot">Synthetic numbers only — no real accounts, no real dates, no real cash.
+  The spark is the collision, not the money.</p>
+</div>
+
+<script>
+  const DAY = 86400000;
+  const fmtMoney = n => "$" + Math.round(n).toLocaleString("en-US");
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const fmtDate = t => MONTHS[new Date(t).getMonth()] + " " + new Date(t).getDate();
+  const parse = s => new Date(s + "T00:00:00").getTime();
+
+  const SCENARIOS = [
+    {
+      id: "watch",
+      name: "The week you're not watching",
+      note: "You're watching the big deposit. Two logistics payments are quietly stacking on top of it.",
+      watchedId: "deposit",
+      movableId: "freight",
+      payments: [
+        { id: "rent",       label: "Landlord rent",             date: "2026-09-26", amount: 12000 },
+        { id: "deposit",    label: "Supplier deposit (Deal C)", date: "2026-10-05", amount: 50000 },
+        { id: "freight",    label: "Freight forwarder",         date: "2026-10-08", amount: 20000 },
+        { id: "container",  label: "Container line",            date: "2026-10-11", amount: 25000 },
+        { id: "insurance",  label: "Insurance premium",         date: "2026-10-20", amount: 6000 },
+        { id: "commission", label: "Sales commission",          date: "2026-10-27", amount: 5000 },
+      ],
+    },
+    {
+      id: "quarter",
+      name: "Quarter-end pile-up",
+      note: "Nothing here is big on its own. Everything lands on the same week.",
+      watchedId: "payroll",
+      movableId: "commission",
+      payments: [
+        { id: "rent",      label: "Office rent",               date: "2026-09-28", amount: 15000 },
+        { id: "payroll",   label: "Payroll run",               date: "2026-09-28", amount: 40000 },
+        { id: "commission", label: "Quarterly commission",     date: "2026-09-30", amount: 22000 },
+        { id: "supplier",  label: "Supplier net-30 batch",     date: "2026-10-01", amount: 28000 },
+        { id: "utility",   label: "Utilities & services",      date: "2026-10-02", amount: 6000 },
+        { id: "credit",    label: "Credit-line repayment",     date: "2026-10-12", amount: 30000 },
+        { id: "insurance", label: "Insurance premium",         date: "2026-10-19", amount: 5000 },
+      ],
+    },
+    {
+      id: "quiet",
+      name: "The quiet-month trap",
+      note: "A month that looks calm until three small things shake hands.",
+      watchedId: "deposit",
+      movableId: "freight2",
+      payments: [
+        { id: "rent",      label: "Office rent",           date: "2026-10-05", amount: 12000 },
+        { id: "freight1",  label: "Freight (inbound)",     date: "2026-10-06", amount: 16000 },
+        { id: "freight2",  label: "Freight (outbound)",    date: "2026-10-08", amount: 15000 },
+        { id: "insurance", label: "Insurance premium",     date: "2026-10-19", amount: 6000 },
+        { id: "deposit",   label: "Supplier deposit",      date: "2026-10-26", amount: 25000 },
+        { id: "commission", label: "Commission",           date: "2026-11-02", amount: 5000 },
+      ],
+    },
+  ];
+
+  let scenario = SCENARIOS[0];
+  let revealed = false;
+  let moveDays = 0;
+
+  const el = id => document.getElementById(id);
+
+  function movingPayments() {
+    // returns payments with the movable one shifted by moveDays (0 = unshifted)
+    return scenario.payments.map(p =>
+      p.id === scenario.movableId
+        ? { ...p, t: parse(p.date) + moveDays * DAY, shifted: moveDays }
+        : { ...p, t: parse(p.date), shifted: 0 }
+    );
+  }
+
+  function rollingPeak(payments) {
+    const sorted = [...payments].sort((a, b) => a.t - b.t);
+    let best = null;
+    for (const p of sorted) {
+      const start = p.t;
+      const end = start + 6 * DAY;
+      const items = sorted.filter(q => q.t >= start && q.t <= end);
+      const sum = items.reduce((s, q) => s + q.amount, 0);
+      if (!best || sum > best.sum) best = { sum, start, end, items };
+    }
+    return best;
+  }
+
+  function renderWeather(payments, peak) {
+    const times = payments.map(p => p.t);
+    const minT = Math.min(...times);
+    const maxT = Math.max(...times);
+    const weekCount = Math.floor((maxT - minT) / (7 * DAY)) + 1;
+    const weeks = [];
+    for (let i = 0; i < weekCount; i++) {
+      const wStart = minT + i * 7 * DAY;
+      const wEnd = wStart + 7 * DAY - 1;
+      const sum = payments.filter(p => p.t >= wStart && p.t <= wEnd).reduce((s, p) => s + p.amount, 0);
+      const hot = peak && peak.start >= wStart && peak.start <= wEnd;
+      weeks.push({ wStart, sum, hot });
+    }
+    const maxSum = Math.max(...weeks.map(w => w.sum), 1);
+    const heat = el("heat");
+    heat.innerHTML = "";
+    weeks.forEach(w => {
+      const cell = document.createElement("div");
+      cell.className = "cell" + (w.hot ? " hot" : (w.sum / maxSum > 0.55 ? " warm" : ""));
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      bar.style.height = Math.max(6, Math.round((w.sum / maxSum) * 72)) + "px";
+      bar.title = fmtDate(w.wStart) + " — " + fmtMoney(w.sum);
+      const lbl = document.createElement("span");
+      lbl.className = "week";
+      lbl.textContent = fmtDate(w.wStart);
+      cell.appendChild(bar);
+      cell.appendChild(lbl);
+      heat.appendChild(cell);
+    });
+  }
+
+  function renderRows(payments, peak) {
+    const rows = el("rows");
+    rows.innerHTML = "";
+    const sorted = [...payments].sort((a, b) => a.t - b.t);
+    sorted.forEach(p => {
+      const inPeak = revealed && peak && p.t >= peak.start && p.t <= peak.end;
+      const row = document.createElement("div");
+      row.className = "row" + (inPeak ? " in-peak" : "") + (p.id === scenario.watchedId ? " watched" : "") + (p.shifted ? " moved" : "");
+      const date = document.createElement("span");
+      date.className = "date";
+      date.textContent = fmtDate(p.t);
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = p.label;
+      if (p.shifted) {
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.textContent = (p.shifted > 0 ? "+" : "") + p.shifted + "d";
+        name.appendChild(badge);
+      }
+      const amt = document.createElement("span");
+      amt.className = "amt";
+      amt.textContent = fmtMoney(p.amount);
+      row.appendChild(date);
+      row.appendChild(name);
+      row.appendChild(amt);
+      rows.appendChild(row);
+    });
+  }
+
+  function render() {
+    const payments = movingPayments();
+    const peak = rollingPeak(payments);
+    renderWeather(payments, peak);
+    renderRows(payments, peak);
+    if (revealed) renderVerdict(payments, peak);
+    renderDelta(payments);
+  }
+
+  function renderVerdict(payments, peak) {
+    const sc = scenario;
+    const watched = payments.find(p => p.id === sc.watchedId);
+    const movable = payments.find(p => p.id === sc.movableId);
+    const others = peak.items
+      .filter(p => p.id !== sc.watchedId)
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 2);
+    const names = others.map(o => o.label + " (" + fmtMoney(o.amount) + ")").join(" and ");
+
+    const v = el("verdict");
+    v.hidden = false;
+    v.innerHTML = "";
+    const watchedLine = document.createElement("p");
+    watchedLine.className = "watched-line";
+    watchedLine.textContent = "You were watching: " + watched.label + " — " + fmtMoney(watched.amount) + ".";
+    const peakLine = document.createElement("p");
+    peakLine.className = "peak-line";
+    peakLine.innerHTML = "Nobody was watching " + names + " share the same 7 days. Peak: <b>" + fmtMoney(peak.sum) + "</b>.";
+    const collideLine = document.createElement("p");
+    collideLine.className = "collide-line";
+    collideLine.textContent = sc.note + " The one you ignored — " + movable.label + " — is sitting inside that same window. Drag it and watch the peak.";
+    v.appendChild(watchedLine);
+    v.appendChild(peakLine);
+    v.appendChild(collideLine);
+  }
+
+  function renderDelta(payments) {
+    const move = el("move");
+    if (!revealed) { move.classList.add("hidden"); return; }
+    move.classList.remove("hidden");
+    const movable = payments.find(p => p.id === scenario.movableId);
+    const peak = rollingPeak(payments);
+    const original = rollingPeak(scenario.payments.map(p => ({ ...p, t: parse(p.date) })));
+    const deltaPct = Math.round((1 - peak.sum / original.sum) * 100);
+
+    el("moveWho").innerHTML = "Move <b>" + movable.label + "</b> (" + fmtMoney(movable.amount) + ") by " + (moveDays === 0 ? "…" : (moveDays > 0 ? "+" + moveDays : moveDays) + " days");
+
+    const d = el("delta");
+    d.innerHTML = "";
+    if (moveDays === 0) {
+      d.innerHTML = '<span class="big">Peak: ' + fmtMoney(original.sum) + "</span> — drag to see the peak fall.";
+    } else {
+      d.innerHTML = '<span class="big">' + fmtMoney(original.sum) + " → <span class='to'>" + fmtMoney(peak.sum) + "</span></span> &nbsp;(" + (deltaPct > 0 ? "−" + deltaPct : "±0") + "%)";
+    }
+  }
+
+  function selectScenario(sc) {
+    scenario = sc;
+    revealed = false;
+    moveDays = 0;
+    el("slider").value = 0;
+    el("verdict").hidden = true;
+    el("move").classList.add("hidden");
+    render();
+    // scenario buttons
+    document.querySelectorAll(".scenarios button").forEach(b => {
+      b.classList.toggle("active", b.dataset.id === sc.id);
+    });
+  }
+
+  el("revealBtn").addEventListener("click", () => {
+    revealed = true;
+    render();
+  });
+
+  el("slider").addEventListener("input", e => {
+    moveDays = parseInt(e.target.value, 10);
+    render();
+  });
+
+  // build scenario buttons
+  const scWrap = el("scenarios");
+  SCENARIOS.forEach(sc => {
+    const b = document.createElement("button");
+    b.textContent = sc.name;
+    b.dataset.id = sc.id;
+    b.addEventListener("click", () => selectScenario(sc));
+    scWrap.appendChild(b);
+  });
+
+  selectScenario(SCENARIOS[0]);
+</script>
+</body>
+</html>
